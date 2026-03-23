@@ -119,12 +119,25 @@
 
   /* 빠른 키워드 */
   .quick-keywords { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-  .keyword-chip {
-    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  .keyword-chip-wrap {
+    display: inline-flex; align-items: center;
     background: var(--surface2); border: 1px solid var(--border);
-    cursor: pointer; transition: all 0.2s; color: var(--text2);
+    border-radius: 20px; overflow: hidden;
+    transition: border-color 0.2s;
   }
-  .keyword-chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(192,57,43,0.1); }
+  .keyword-chip-wrap:hover { border-color: var(--accent); }
+  .keyword-chip-wrap .keyword-chip {
+    padding: 6px 8px 6px 14px; border-radius: 0;
+    background: transparent; border: none;
+  }
+  .keyword-chip-wrap .keyword-chip:hover { background: rgba(192,57,43,0.1); color: var(--accent); }
+  .kw-remove-btn {
+    padding: 4px 8px; background: transparent; border: none;
+    color: var(--text2); cursor: pointer; font-size: 14px;
+    line-height: 1; transition: color 0.2s;
+  }
+  .kw-remove-btn:hover { color: var(--accent); }
+  .kw-add-wrap { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
 
   /* 탭 */
   .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
@@ -476,6 +489,44 @@
     </div>
   </div>
 
+  <!-- 섹션 2.5: URL 직접 모니터링 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num" style="background:#1f6feb;">🔗</div>
+      <div class="section-title">URL 직접 모니터링</div>
+      <div class="section-desc">지정한 블로그/카페 URL의 최신 글을 직접 수집</div>
+    </div>
+    <div class="section-body">
+
+      <div style="background:rgba(31,111,235,0.08);border:1px solid rgba(31,111,235,0.25);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#58a6ff;display:flex;align-items:center;gap:10px;">
+        🔗 네이버 블로그, 카페, 티스토리 등 자주 보는 URL을 등록하면 최신 글 목록을 바로 불러옵니다.
+      </div>
+
+      <!-- URL 목록 관리 -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:8px;">모니터링 URL 목록</label>
+        <div id="url-list-wrap" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newUrlInput" placeholder="URL 입력 (예: https://blog.naver.com/xxx, https://cafe.naver.com/bds)" style="flex:1;">
+          <input type="text" id="newUrlLabel" placeholder="별칭 (예: 백두산카페)" style="width:160px;">
+          <button class="btn btn-secondary" onclick="addMonitorUrl()">+ 추가</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;">
+        <button class="btn btn-primary" onclick="fetchAllUrls()" id="url-fetch-btn">🔗 전체 URL 수집</button>
+        <span style="font-size:12px;color:var(--text2);" id="url-last-updated"></span>
+      </div>
+
+      <div id="url-result">
+        <div class="empty-state">
+          <div class="empty-icon">🔗</div>
+          <p>URL을 추가하고 "전체 URL 수집" 버튼을 누르면<br>해당 페이지의 최신 글 목록이 표시됩니다</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 섹션 3: 소재 보관함 -->
   <div class="section">
     <div class="section-header">
@@ -529,7 +580,36 @@ async function fetchWithProxy(url, options = {}) {
   }
   throw new Error('모든 프록시 실패. 네트워크를 확인해주세요.');
 }
-const QUICK_KW = ['코인사기','리딩방사기','다단계사기','투자사기','가상화폐사기','채무부존재','지급정지','사기환불','보이스피싱','로맨스스캠'];
+const DEFAULT_KW = ['코인사기','리딩방사기','다단계사기','투자사기','가상화폐사기','채무부존재','지급정지','사기환불','보이스피싱','로맨스스캠'];
+let QUICK_KW = JSON.parse(localStorage.getItem('damduk_quick_kw') || JSON.stringify(DEFAULT_KW));
+
+function saveQuickKw() {
+  localStorage.setItem('damduk_quick_kw', JSON.stringify(QUICK_KW));
+}
+
+function addQuickKw() {
+  const input = document.getElementById('newKwInput');
+  const val = input.value.trim();
+  if (!val) return;
+  if (QUICK_KW.includes(val)) { input.value = ''; return; }
+  QUICK_KW.push(val);
+  saveQuickKw();
+  input.value = '';
+  renderQuickKeywords();
+}
+
+function removeQuickKw(kw) {
+  QUICK_KW = QUICK_KW.filter(k => k !== kw);
+  saveQuickKw();
+  renderQuickKeywords();
+}
+
+function resetQuickKw() {
+  if (!confirm('기본 키워드로 초기화하시겠습니까?')) return;
+  QUICK_KW = [...DEFAULT_KW];
+  saveQuickKw();
+  renderQuickKeywords();
+}
 const COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6'];
 
 let searchData = { blog: [], news: [], cafe: [] };
@@ -544,6 +624,7 @@ window.onload = () => {
   setDefaultDates();
   renderQuickKeywords();
   loadIdeas();
+  renderUrlList();
   document.getElementById('searchQuery').addEventListener('keydown', e => {
     if (e.key === 'Enter') doSearch();
   });
@@ -558,9 +639,28 @@ function setDefaultDates() {
 
 function renderQuickKeywords() {
   const wrap = document.getElementById('quickKeywords');
-  wrap.innerHTML = QUICK_KW.map(kw =>
-    `<span class="keyword-chip" onclick="quickSearch('${kw}')">${kw}</span>`
-  ).join('');
+  // 키워드 칩 (×버튼 포함)
+  const chips = QUICK_KW.map(kw => `
+    <span class="keyword-chip-wrap">
+      <span class="keyword-chip" onclick="quickSearch('${kw}')">${kw}</span>
+      <button class="kw-remove-btn" onclick="removeQuickKw('${kw}')" title="삭제">×</button>
+    </span>
+  `).join('');
+
+  // 추가 입력창
+  const addForm = `
+    <span class="kw-add-wrap">
+      <input type="text" id="newKwInput" placeholder="키워드 추가..." 
+        style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:20px;font-size:12px;width:120px;font-family:inherit;"
+        onkeydown="if(event.key==='Enter') addQuickKw()">
+      <button class="btn btn-sm" onclick="addQuickKw()" 
+        style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:20px;font-size:12px;cursor:pointer;">+추가</button>
+      <button class="btn btn-sm" onclick="resetQuickKw()"
+        style="background:transparent;border:none;color:var(--text2);font-size:11px;cursor:pointer;padding:5px;">초기화</button>
+    </span>
+  `;
+
+  wrap.innerHTML = chips + addForm;
 }
 
 // ============================================================
@@ -1118,6 +1218,237 @@ function sendToSearch(kw) {
   document.getElementById('searchQuery').scrollIntoView({ behavior: 'smooth', block: 'center' });
   // 자동 검색 실행
   setTimeout(() => doSearch(), 400);
+}
+
+// ============================================================
+// URL 직접 모니터링
+// ============================================================
+
+let monitorUrls = JSON.parse(localStorage.getItem('damduk_monitor_urls') || '[]');
+
+function saveMonitorUrls() {
+  localStorage.setItem('damduk_monitor_urls', JSON.stringify(monitorUrls));
+}
+
+function renderUrlList() {
+  const wrap = document.getElementById('url-list-wrap');
+  if (monitorUrls.length === 0) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0;">등록된 URL이 없습니다.</div>';
+    return;
+  }
+  wrap.innerHTML = monitorUrls.map((item, i) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+      <span style="font-size:12px;font-weight:600;color:#58a6ff;min-width:80px;">${item.label || 'URL ' + (i+1)}</span>
+      <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <a href="${item.url}" target="_blank" style="color:var(--text2);text-decoration:none;">${item.url}</a>
+      </span>
+      <button class="btn btn-sm" onclick="fetchSingleUrl(${i})"
+        style="background:rgba(31,111,235,0.1);color:#58a6ff;border:1px solid rgba(31,111,235,0.3);padding:4px 10px;font-size:11px;">수집</button>
+      <button class="btn btn-sm btn-delete" onclick="removeMonitorUrl(${i})" style="padding:4px 10px;font-size:11px;">삭제</button>
+    </div>
+  `).join('');
+}
+
+function addMonitorUrl() {
+  const urlInput = document.getElementById('newUrlInput');
+  const labelInput = document.getElementById('newUrlLabel');
+  const url = urlInput.value.trim();
+  const label = labelInput.value.trim();
+  if (!url) { alert('URL을 입력해주세요.'); return; }
+  if (!url.startsWith('http')) { alert('http:// 또는 https://로 시작하는 URL을 입력해주세요.'); return; }
+  if (monitorUrls.some(u => u.url === url)) { alert('이미 등록된 URL입니다.'); return; }
+  monitorUrls.push({ url, label: label || new URL(url).hostname });
+  saveMonitorUrls();
+  urlInput.value = '';
+  labelInput.value = '';
+  renderUrlList();
+}
+
+function removeMonitorUrl(i) {
+  monitorUrls.splice(i, 1);
+  saveMonitorUrls();
+  renderUrlList();
+}
+
+async function fetchAllUrls() {
+  if (monitorUrls.length === 0) { alert('모니터링할 URL을 먼저 추가해주세요.'); return; }
+  const btn = document.getElementById('url-fetch-btn');
+  btn.disabled = true; btn.textContent = '⏳ 수집 중...';
+  document.getElementById('url-result').innerHTML = '<div class="loading"><div class="spinner"></div> URL에서 최신 글 수집 중...</div>';
+
+  const results = [];
+  for (let i = 0; i < monitorUrls.length; i++) {
+    const item = monitorUrls[i];
+    try {
+      const posts = await fetchUrlPosts(item.url, item.label);
+      results.push({ label: item.label, url: item.url, posts, error: null });
+    } catch(e) {
+      results.push({ label: item.label, url: item.url, posts: [], error: e.message });
+    }
+  }
+
+  document.getElementById('url-last-updated').textContent = `마지막 수집: ${new Date().toLocaleTimeString('ko-KR')}`;
+  btn.disabled = false; btn.textContent = '🔗 전체 URL 수집';
+  renderUrlResults(results);
+}
+
+async function fetchSingleUrl(i) {
+  const item = monitorUrls[i];
+  document.getElementById('url-result').innerHTML = `<div class="loading"><div class="spinner"></div> "${item.label}" 수집 중...</div>`;
+  try {
+    const posts = await fetchUrlPosts(item.url, item.label);
+    renderUrlResults([{ label: item.label, url: item.url, posts, error: null }]);
+  } catch(e) {
+    document.getElementById('url-result').innerHTML = `<div class="error-box">❌ ${item.label} 수집 실패: ${e.message}</div>`;
+  }
+}
+
+async function fetchUrlPosts(url, label) {
+  // 네이버 블로그 RSS 시도
+  const naverBlogMatch = url.match(/blog\.naver\.com\/([^\/\?]+)/);
+  const naverCafeMatch = url.match(/cafe\.naver\.com\/([^\/\?]+)/);
+  const tistoryMatch = url.match(/([^\/]+)\.tistory\.com/);
+
+  let rssUrl = null;
+
+  if (naverBlogMatch) {
+    // 네이버 블로그 RSS
+    rssUrl = `https://rss.blog.naver.com/${naverBlogMatch[1]}.xml`;
+  } else if (tistoryMatch) {
+    // 티스토리 RSS
+    rssUrl = `https://${tistoryMatch[1]}.tistory.com/rss`;
+  } else if (url.includes('rss') || url.includes('.xml')) {
+    // 직접 RSS URL
+    rssUrl = url;
+  }
+
+  if (rssUrl) {
+    return await fetchRss(rssUrl, label);
+  }
+
+  // 카페나 일반 URL은 네이버 검색 API로 대체
+  if (naverCafeMatch) {
+    return await fetchCafeViaApi(naverCafeMatch[1], label);
+  }
+
+  // 그 외: 프록시로 HTML 파싱 시도
+  return await fetchByProxy(url, label);
+}
+
+async function fetchRss(rssUrl, label) {
+  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(rssUrl);
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error('RSS 불러오기 실패');
+  const text = await res.text();
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(text, 'text/xml');
+  const items = xml.querySelectorAll('item');
+  if (!items.length) throw new Error('RSS 항목 없음');
+
+  return Array.from(items).slice(0, 15).map(item => ({
+    title: item.querySelector('title')?.textContent?.replace(/<!\[CDATA\[|\]\]>/g,'').trim() || '',
+    link: item.querySelector('link')?.textContent?.trim() || '',
+    date: item.querySelector('pubDate')?.textContent?.trim() || '',
+    desc: stripHtml(item.querySelector('description')?.textContent?.replace(/<!\[CDATA\[|\]\]>/g,'') || '').slice(0, 100),
+    source: label
+  }));
+}
+
+async function fetchCafeViaApi(cafeName, label) {
+  const keys = getKeys();
+  if (!keys) throw new Error('API 키 필요');
+  // 카페 이름으로 최신 글 검색
+  const url = `https://openapi.naver.com/v1/search/cafearticle.json?query=${encodeURIComponent(cafeName)}&display=15&sort=date`;
+  const res = await fetchWithProxy(url, {
+    headers: { 'X-Naver-Client-Id': keys.id, 'X-Naver-Client-Secret': keys.secret }
+  });
+  if (!res.ok) throw new Error(`API 오류 ${res.status}`);
+  const data = await res.json();
+  return (data.items || []).map(item => ({
+    title: stripHtml(item.title),
+    link: item.link || item.url,
+    date: formatDate(item.postdate),
+    desc: stripHtml(item.description).slice(0, 100),
+    source: label
+  }));
+}
+
+async function fetchByProxy(url, label) {
+  // 일반 웹페이지에서 링크 추출
+  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error('페이지 로드 실패');
+  const html = await res.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // 링크 추출
+  const links = Array.from(doc.querySelectorAll('a'))
+    .filter(a => a.textContent.trim().length > 10 && a.href && a.href.startsWith('http'))
+    .slice(0, 15)
+    .map(a => ({
+      title: a.textContent.trim().slice(0, 60),
+      link: a.href,
+      date: '',
+      desc: '',
+      source: label
+    }));
+
+  if (!links.length) throw new Error('수집된 링크 없음');
+  return links;
+}
+
+function renderUrlResults(results) {
+  const el = document.getElementById('url-result');
+  if (!results.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">😕</div><p>수집된 결과가 없습니다.</p></div>';
+    return;
+  }
+
+  el.innerHTML = results.map(r => {
+    if (r.error) return `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;color:#58a6ff;margin-bottom:8px;">
+          🔗 ${r.label} <a href="${r.url}" target="_blank" style="font-size:11px;color:var(--text2);">${r.url}</a>
+        </div>
+        <div class="error-box">❌ 수집 실패: ${r.error}</div>
+      </div>`;
+
+    const cards = r.posts.map(post => `
+      <div class="result-card" style="margin-bottom:8px;">
+        <div class="result-card-top">
+          <div style="flex:1;">
+            <a href="${post.link}" target="_blank" class="result-title">${post.title || '(제목 없음)'}</a>
+            <div class="result-meta">
+              ${post.date ? `<span>📅 ${post.date}</span>` : ''}
+              <span>📌 ${post.source}</span>
+            </div>
+            ${post.desc ? `<div class="result-desc">${post.desc}</div>` : ''}
+          </div>
+          <button class="btn btn-sm btn-save-idea" onclick='saveIdea(${JSON.stringify({
+            title: post.title,
+            link: post.link,
+            source: post.source,
+            date: post.date,
+            type: "URL모니터링"
+          }).replace(/'/g,"&#39;")})'>💾 저장</button>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:13px;font-weight:700;color:#58a6ff;">
+            🔗 ${r.label}
+            <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:6px;">${r.posts.length}건</span>
+          </span>
+          <a href="${r.url}" target="_blank" style="font-size:11px;color:var(--text2);">원본 바로가기 →</a>
+        </div>
+        ${cards || '<div class="empty-state" style="padding:20px;"><p>수집된 글이 없습니다.</p></div>'}
+      </div>
+    `;
+  }).join('<hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">');
 }
 
 // ============================================================
